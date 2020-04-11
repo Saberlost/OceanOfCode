@@ -3,6 +3,15 @@
  * the standard input according to the problem statement.
  **/
 
+
+function readline() : string{
+    return "hello"
+}/**
+ * Auto-generated code below aims at helping you parse
+ * the standard input according to the problem statement.
+ **/
+
+
 enum Charge {
     Silence = "SILENCE",
     Torpedo = "TORPEDO",
@@ -19,9 +28,12 @@ enum Action {
 }
 
 class Cell {
+    private parent :Cell = null
+    private parentMovedDirection : string = null
     constructor (
         private visited :Boolean,
         private isLand : Boolean,
+        private discovered : Boolean = false,
         private x : number, 
         private y : number) {}
         
@@ -39,6 +51,35 @@ class Cell {
         this.visited = visited
     }
     
+    
+    isDiscovered() : Boolean {
+        return this.discovered;
+    }
+    
+    setDiscovered(discovered: Boolean){
+        this.discovered = discovered
+    }
+
+    setParent(parent: Cell){
+        this.parent = parent
+    }
+
+    getParent(){
+        return this.parent;
+    }
+
+    clearParent(){
+        this.parent = null
+    }
+
+    setParentMoveDirection(direction : string) {
+        this.parentMovedDirection= direction
+    }
+    getParentMoveDirection ():string{
+        return this.parentMovedDirection
+    }
+
+
     getX() :number{
         return this.x;
     }
@@ -123,8 +164,99 @@ function isRigthFree(x: number, y: number, board : Array<Cell>) : Boolean{
 
 
 
+function getUpCell(x: number, y: number, board : Array<Cell>) : Cell{
+    let newy = up(y)
+    if (newy < 0){
+        return null;
+    }
+    return board[toBoardNumber(x,newy)] 
+}
+
+
+function getDownCell(x: number, y: number, board : Array<Cell>) : Cell{
+    let newy = y +1;
+    if (newy > 14){
+        return null;
+    }
+    
+    return board[toBoardNumber(x,newy)] 
+   
+}
+
+function getLeftCell(x: number, y: number, board : Array<Cell>) : Cell{
+    let newX =  x -1;
+    if (newX < 0){
+        return null;
+    }
+    return board[toBoardNumber(newX,y)] 
+}
+
+function getRigthCell(x: number, y: number, board : Array<Cell>) : Cell{
+    let newX =  x + 1;
+    if (newX > 14){
+        return null;
+    }
+   return board[toBoardNumber(newX,y)] 
+   
+}
+
+
+
 function getRandomInt(max: number) :number {
   return Math.floor(Math.random() * Math.floor(max));
+}
+
+function checkAndEnqueu(cell : Cell, direction : string,  prevCell:Cell, nextCells:Array<Cell>) : Boolean{
+    if (cell != null && cell.isDiscovered() == false && !cell.hasVisited() && !cell.getIsLand()){
+        cell.setDiscovered(true);
+        cell.setParent(prevCell);
+        cell.setParentMoveDirection(direction)
+        nextCells.push(cell)
+        return true;
+    }
+    return false;
+}
+
+
+//Breth first search for a way that is within 5 spaces. Then select one at random
+function findPath(x : number, y : number ,  board : Array<Cell>) :Cell{
+    let nextCells : Array<Cell> = new Array<Cell>();
+    let allVisitedCelsls :Array<Cell> = new Array<Cell>();
+    let c: Cell = board[toBoardNumber(x,y)]    
+    c.setDiscovered(true);
+    nextCells.push(c);
+    let depth : number = 0;
+    while (nextCells.length > 0 && depth<50 ){
+        let v : Cell = nextCells.pop()// pop == depth first? shift = breth first?
+        allVisitedCelsls.push(v)
+        let up :Cell = getUpCell(v.getX(), v.getY(), board)
+        let down :Cell = getDownCell(v.getX(), v.getY(), board)
+        let left :Cell = getLeftCell(v.getX(), v.getY(), board)
+        let rigth :Cell = getRigthCell(v.getX(), v.getY(), board)
+        
+        checkAndEnqueu(left,"W", v, nextCells);
+        checkAndEnqueu(up, "N", v, nextCells);
+        checkAndEnqueu(down,"S", v, nextCells);
+        checkAndEnqueu(rigth,"E", v, nextCells);
+   
+        depth++
+    }
+    console.error("Searched to depth : " + depth)
+    
+    console.error("allVisitedCelsls lenght : " + allVisitedCelsls.length)
+    if (depth == 1){
+        return null
+    }
+    
+    let finalCell: Cell = allVisitedCelsls.pop();
+    
+   
+    while(finalCell.getParent()!= null && finalCell.getParent() != c){ // C is the start cell,we want to find the one we should move to.
+        finalCell = finalCell.getParent();
+        
+    }
+    return finalCell;
+       
 }
 
 
@@ -137,9 +269,9 @@ for (let i = 0; i < height; i++) {
     const line: string = readline();
     for (let j = 0; j < width; j++){
         if(line.charAt(j) == 'x'){
-            board.push(new Cell(false, true, j, i));
+            board.push(new Cell(false, true,false,  j, i));
         } else  {
-             board.push(new Cell(false, false, j ,i ));
+             board.push(new Cell(false, false, false, j ,i ));
         }
     }
 }
@@ -149,6 +281,7 @@ for (let i = 0; i < height; i++) {
 let c : Cell = board.filter(cell => cell.getIsLand() == false).reduce (
     (first , second) => getRandomInt(50) > 3 ? first:second); 
 console.log(c.getX() + ' ' + c.getY());
+
 let silence : number = 0;
 let torpedo : number = 0;
 let sonar : number = 0;
@@ -181,30 +314,22 @@ while (true) {
         extraString = '1'
     }
 
- 
-    if (isUpFree(x,y, board)){
-        console.error('move up')
-        direction = "N"
-        let cell:Cell = board[toBoardNumber(x,up(y))];
-        
-    
-    } else if(isDownFree(x, y, board)){
-        direction = "S"
-        let cell:Cell = board[toBoardNumber(x,down(y))];
-    } else if(isLeftFree(x, y, board)){
-        direction = "W"
-        
-        let cell:Cell = board[toBoardNumber(left(x),y)];
-    } else if(isRigthFree(x, y, board)){
-        direction = "E"
-        
-        let cell:Cell = board[toBoardNumber(right(x),y)];
-       
+    board.forEach( function(c :Cell) {
+            c.setDiscovered(false)
+            c.setParent(null)})
+
+    let nextCell : Cell = findPath(x,y,board);
+    if (nextCell != null){
+        direction = nextCell.getParentMoveDirection()
+
     }
     else {
         console.error('going to surface')
         action = Action.Surface
-        board.forEach( function(c :Cell) {c.setVisited(false)})
+        board.forEach( function(c :Cell) {
+            c.setVisited(false)
+            c.setDiscovered(false)
+            c.setParent(null)})
         charge = Charge.None
     }
     if (charge == Charge.Silence){
